@@ -1,0 +1,191 @@
+---
+title: "p8105_hw2_yc4587"
+author:"Yifei Chen"
+date:"2024-10-2"
+output: github_document
+---
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Problem 1
+
+```{r}
+trans_ent = 
+  read_csv(
+    "data/NYC_Transit_Subway_Entrance_And_Exit_Data.csv",
+    col_types = cols(Route8 = "c", Route9 = "c", Route10 = "c", Route11 = "c")) |> 
+  janitor::clean_names() |> 
+  select(
+    line, station_name, station_latitude, station_longitude, 
+    starts_with("route"), entry, exit_only, vending, entrance_type, 
+    ada) |> 
+  mutate(entry = ifelse(entry == "YES", TRUE, FALSE))
+```
+
+The cleaned dataset now includes the following variables:
+
+line: The subway line (e.g., "1", "2", "A")
+station_name: The name of the station
+station_latitude and station_longitude: Geographical coordinates of the station
+routes: Columns representing different subway routes served by the station
+entry: A logical variable (TRUE if the entrance allows entry, FALSE otherwise)
+vending: Whether the station has vending machines (e.g., "YES" or "NO")
+entrance_type: The type of entrance (e.g., "Stair", "Elevator")
+ada: Whether the station is ADA compliant (e.g., "YES" or "NO")
+ 
+
+```{r}
+trans_ent |> 
+  select(station_name, line) |> 
+  distinct()
+```
+
+We filter the data where ada is "true" and count the number of rows.
+
+```{r}
+trans_ent |> 
+  filter(ada == TRUE) |> 
+  select(station_name, line) |> 
+  distinct()
+```
+
+We filter the data where vending == "NO" and calculate the proportion of entrances where entry == TRUE.
+
+```{r}
+trans_ent |> 
+  filter(vending == "NO") |> 
+  pull(entry) |> 
+  mean()
+```
+
+Lastly, we write a code chunk to identify stations that serve the A train, and to assess how many of these are ADA compliant.
+
+```{r}
+trans_ent |> 
+  pivot_longer(
+    route1:route11,
+    names_to = "route_num",
+    values_to = "route") |> 
+  filter(route == "A") |> 
+  select(station_name, line) |> 
+  distinct()
+
+trans_ent |> 
+  pivot_longer(
+    route1:route11,
+    names_to = "route_num",
+    values_to = "route") |> 
+  filter(route == "A", ada == TRUE) |> 
+  select(station_name, line) |> 
+  distinct()
+```
+The dataset provides details about subway entrances and exits across NYC, including routes, ADA compliance, and entry types.
+After cleaning the data, there are 468 distinct stations, 107 stations are ADA compliant. About 37.6% of stations without vending machines allow entry. The A train serves 60 distinct stations, and 17 of those stations are ADA compliant.
+
+### Problem 2 
+
+```{r}
+library(readxl)
+library(tidyverse)
+
+# Read and clean Mr. Trash Wheel data
+mr_trash_wheel <- read_excel("data/202409 Trash Wheel Collection Data.xlsx", sheet = "Mr. Trash Wheel", skip = 1) %>%
+  janitor::clean_names() %>% 
+  filter(!is.na(dumpster)) %>%  # Keep rows with dumpster-specific data
+  mutate(
+    sports_balls = as.integer(round(sports_balls)),
+    year = as.integer(year)
+  )
+
+```
+
+We skip non-data rows: The skip = 1 argument skips the first row, which contains non-data entries. Omit rows without dumpster-specific data: The filter(!is.na(dumpster)) removes rows where dumpster is NA (i.e., rows that don’t contain data for a specific dumpster). The janitor::clean_names() function is used to clean and standardize column names, removing spaces and converting them to snake_case. We round and convert sports balls that the mutate() function rounds the number of sports balls to the nearest integer and converts the result to an integer using as.integer().
+
+```{r}
+# Read and clean Professor Trash Wheel data
+prof_trash_wheel <- read_excel("data/202409 Trash Wheel Collection Data.xlsx", sheet = "Professor Trash Wheel", skip = 1) %>%
+  janitor::clean_names() %>%
+  filter(!is.na(dumpster)) %>%
+  mutate(person = "prof_trash_wheel", 
+         year = as.integer(year))
+
+# Read and clean Gwynnda Trash Wheel data
+gwynnda_trash_wheel <- read_excel("data/202409 Trash Wheel Collection Data.xlsx", sheet = "Gwynnda Trash Wheel", skip = 1) %>%
+  janitor::clean_names() %>%
+  filter(!is.na(dumpster)) %>%
+  mutate(person = "gwynnda_trash_wheel", 
+         year = as.integer(year))
+```
+
+```{r combine dataset}
+# Combine the three datasets
+
+combined_trash_wheel_data <- bind_rows(
+  mr_trash_wheel,
+  prof_trash_wheel,
+  gwynnda_trash_wheel
+)
+```
+
+a) What is the total weight of trash collected by Professor Trash Wheel?
+We can filter the combined dataset for "Professor Trash Wheel" and sum the total weight of trash.
+```{r}
+# Total weight of trash collected by Professor Trash Wheel
+total_weight_professor_trash_wheel <- combined_trash_wheel_data %>%
+  filter(person == "prof_trash_wheel") %>%
+  summarise(total_weight = sum(weight_tons, na.rm = TRUE))
+
+print(total_weight_professor_trash_wheel)
+```
+
+b) What was the total number of cigarette butts collected by Gwynnda in June 2022?
+For this, filter the dataset for Gwynnda, select rows corresponding to June 2022, and sum the total number of cigarette butts.
+```{r}
+# Total cigarette butts collected by Gwynnda in June 2022
+total_cigarette_gwynnda_trash_wheel <- combined_trash_wheel_data %>%
+  filter(person == "gwynnda_trash_wheel", month == "June", year == "2022") %>%
+  summarise(total_number_cigarette_butts = sum(cigarette_butts, na.rm = TRUE))
+
+print(total_cigarette_gwynnda_trash_wheel)
+```
+Professor Trash Wheel collected a total of 246.74 tons of trash, while Gwynnda collected 18120 cigarette butts in June 2022.
+
+### Problem 3 
+
+library(dplyr)
+library(readr)
+
+setwd("/Users/sofiachen/Desktop/p8105_hw2_yc4587/data")
+
+bakers <- read_csv("bakers.csv")
+bakes <- read_csv("bakes.csv")
+results <- read_csv("results.csv", skip = 2)
+viewers <- read_csv("viewers.csv")
+
+bakes <- bakes %>% rename("series" = "Series", "episode" = "Episode", "baker" = "Baker")
+bakers <- bakers %>% rename("series" = "Series")
+bakers <- bakers %>% mutate(baker = sub(" .*", "", `Baker Name`))
+
+result_bake <- merge(results, bakes, by = c("series", "episode", "baker"))
+final_result <- merge(result_bake, bakers, by = c("series", "baker"))
+
+final_result <- final_result %>% mutate(rank = factor(result, levels = c("WINNER", "Runner-up", "IN", "OUT")))
+
+final_result <- final_result %>% arrange(series, episode, rank)
+
+final_result <- final_result %>% select(-baker, -rank)
+
+write.csv(final_result, "final_result.csv", row.names = FALSE)
+
+# We deal with missing data by removing rows with missing values and ensuring consistency of data types. We merge the roaster, bake-off and results data sets into one data set that includes roasters, bake-offs and their performance. The list of star roasters or winners from Seasons 5 through 10 will show predictable patterns or surprises in the competition. In addition, we calculated average ratings for Season 1 and Season 5 to track the popularity of the show.
+
+
+
+
+
+
+
